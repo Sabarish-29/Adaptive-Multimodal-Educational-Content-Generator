@@ -1,0 +1,50 @@
+# Gitleaks configuration for secret scanning
+# Basic rules rely on built-in default rules; we only add allowlist for test keys.
+
+[allowlist]
+  description = "Allow test fixture dummy keys & known false positives"
+  regexTarget = "match"
+  regexes = [
+    '''AAAAB3NzaC1yc2EAAAADAQABAAABAQDtestkeyonly''',
+    '''TEST_FAKE_KEY_[A-Z0-9]{8}''',
+    '''localhost:[0-9]{4}'''
+  ]
+  paths = [
+    '''tests/''',
+    '''docs/'''
+  ]
+
+[[rules]]
+id = "high-entropy-generic"
+description = "Generic high entropy string (40+ b64-ish)"
+regex = '''[A-Za-z0-9+/]{40,}={0,2}'''
+entropy = 3.5
+secretGroup = 0
+tags = ["key","generic"]
+
+[[rules]]
+id = "possible-jwt"
+description = "Likely JWT token"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9._-]{10,}\.[A-Za-z0-9._-]{10,}'''
+tags = ["jwt","token"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID pattern"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws","key"]
+
+[[rules]]
+id = "generic-password"
+description = "password= style assignment"
+regex = '''(?i)password\s*[:=]\s*['\"]?[A-Za-z0-9!@#$%^&*()_+=-]{8,}'''
+tags = ["password"]
+
+# Example of a custom (stricter) rule placeholder we can enable later for JWTs or API keys
+# [[rules]]
+# id = "high-entropy-generic"
+# description = "Generic high entropy string"
+# regex = '''[A-Za-z0-9+/]{40,}={0,2}'''
+# entropy = 3.5
+# secretGroup = 0
+# tags = ["key","generic"]

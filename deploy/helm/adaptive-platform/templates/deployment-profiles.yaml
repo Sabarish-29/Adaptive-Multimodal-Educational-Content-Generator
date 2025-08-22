@@ -1,0 +1,31 @@
+{{- if .Values.services.profiles.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profiles
+  labels:
+{{ include "adaptive.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.services.profiles.replicaCount }}
+  selector:
+    matchLabels:
+      app: profiles
+  template:
+    metadata:
+      labels:
+        app: profiles
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        {{- end }}
+    spec:
+      containers:
+        - name: profiles
+          image: {{ .Values.global.imageRepository }}-profiles:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MONGODB_URI
+              value: {{ .Values.global.mongodbUri | quote }}
+          ports:
+            - containerPort: 8000
+{{- end }}

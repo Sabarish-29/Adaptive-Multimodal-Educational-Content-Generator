@@ -1,0 +1,43 @@
+{{- if .Values.services.contentgen.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contentgen
+  labels:
+{{ include "adaptive.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.services.contentgen.replicaCount }}
+  selector:
+    matchLabels:
+      app: contentgen
+  template:
+    metadata:
+      labels:
+        app: contentgen
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        {{- end }}
+    spec:
+      containers:
+        - name: contentgen
+          image: {{ .Values.global.imageRepository }}-contentgen:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MONGODB_URI
+              value: {{ .Values.global.mongodbUri | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.global.redisUrl | quote }}
+            - name: CONTENTGEN_CACHE_TTL
+              value: {{ .Values.cache.contentgenTtl | quote }}
+            - name: CONTENTGEN_RATE_PER_MIN
+              value: {{ .Values.rateLimits.contentgenPerMin | quote }}
+            - name: FEATURE_CAPTION
+              value: {{ ternary "true" "false" .Values.featureFlags.caption | quote }}
+            - name: FEATURE_TTS
+              value: {{ ternary "true" "false" .Values.featureFlags.tts | quote }}
+            - name: FEATURE_FIELD_ENCRYPTION
+              value: {{ ternary "true" "false" .Values.featureFlags.fieldEncryption | quote }}
+          ports:
+            - containerPort: 8000
+{{- end }}

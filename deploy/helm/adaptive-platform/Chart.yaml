@@ -1,0 +1,5 @@
+apiVersion: v2
+name: adaptive-platform
+version: 0.1.0
+description: Adaptive Multimodal Educational Platform (core services)
+appVersion: "1.1"

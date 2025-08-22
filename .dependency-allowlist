@@ -1,0 +1,3 @@
+# Lines here (exact match to requirement lines) are exempt from dependency policy temporarily.
+# Example:
+# requests==2.31.0  # temporary until migrated to httpx
