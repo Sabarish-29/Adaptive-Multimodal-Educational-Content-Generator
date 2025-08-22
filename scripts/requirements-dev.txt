@@ -1,0 +1,3 @@
+# Dev/test helper requirements
+requests
+sseclient-py
