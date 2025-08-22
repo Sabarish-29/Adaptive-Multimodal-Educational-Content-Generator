@@ -1,0 +1,37 @@
+name: dependency-autobump
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  autobump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit==2.7.3
+      - name: Bump dependencies (requirements-dev.txt only for demo)
+        run: |
+          sed -i 's/==/>=/g' requirements-dev.txt
+          pip-audit -r requirements-dev.txt || true
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(deps): automated dependency loosen + audit"
+          branch: chore/dependency-autobump
+          title: "chore: dependency autobump"
+          body: |
+            Automated dependency bump & audit report.
+            Review changes, tighten versions as needed, and ensure tests pass.
+          labels: dependencies, automated

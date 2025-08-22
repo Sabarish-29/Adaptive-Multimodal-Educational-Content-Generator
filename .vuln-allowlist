@@ -1,0 +1,6 @@
+# List vulnerability IDs (e.g., GHSA-xxxx, CVE-YYYY-NNNN, PYSEC-*) to temporarily allow.
+# Each line: exact vulnerability identifier. Lines beginning with '#' are comments.
+# Keep this list minimal and time-boxed; create an issue referencing each entry with planned removal date.
+
+# Example (uncomment to allow):
+# GHSA-xxxx-xxxx-xxxx
