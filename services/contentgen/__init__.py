@@ -1,0 +1,1 @@
+from .contentgen import main

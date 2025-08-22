@@ -1,0 +1,11 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+pydantic==1.10.13
+pymongo==4.5.0
+motor==3.3.2
+redis==5.0.1
+numpy==1.26.4
+python-dotenv==1.0.0
+prometheus-client==0.20.0
+opentelemetry-sdk==1.24.0
+opentelemetry-exporter-otlp==1.24.0
