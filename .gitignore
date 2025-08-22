@@ -1,0 +1,115 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment / secrets
+*.env
+.env.*
+!example.env
+!.env.example
+!.env.*.example
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+dist/
+build/
+coverage/
+
+# Coverage / test
+.coverage*
+htmlcov/
+.pytest_cache/
+.junit/
+junit*.xml
+coverage/
+test-output/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Misc
+*.sqlite3
+*.db
+*.seed
+*.tgz
+*.tar.gz
+*.zip
+*.local
+
+# Logs
+logs/
+*.log
+scripts/*.log
+
+# Cache
+.cache/
+.mypy_cache/
+ruff_cache/
+# Buildkit
+.buildkit/
+
+# Local data
+/tmp/
+# MinIO/Redis/MongoDB data
+minio/
+redis/
+mongodb/
+
+# Docker
+*.pid
+
+# Ignore lock files (optional, uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Ignore local override compose env
+infra/compose/docker-compose.override.yml
+
+# Ignore Next.js telemetry
+.next/telemetry
+
+# Playwright & Jest artifacts
+**/playwright-report/
+**/test-results/
+jest-final.json
+jest-output.txt
+
+# Storybook build output
+storybook-static/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Temporary folders anywhere
+tmp/
+
+# Hypothesis test cache
+.hypothesis/
+
+# Node/NPM/Yarn debug logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*

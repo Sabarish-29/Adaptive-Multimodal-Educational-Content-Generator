@@ -1,0 +1,253 @@
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: edu
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  api-profiles:
+    build: ../../services/profiles
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-adaptation:
+    build: ../../services/adaptation
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+      REDIS_URL: redis://redis:6379/0
+      OTEL_ENABLED: "false"
+    depends_on:
+      - mongodb
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-sessions:
+    build: ../../services/sessions
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+      REDIS_URL: redis://redis:6379/0
+      ADAPTATION_URL: http://api-adaptation:8001
+      OTEL_ENABLED: "false"
+      SESSIONS_EAGER_DB: "false"
+    depends_on:
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+      api-adaptation:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8002/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-contentgen:
+    build: ../../services/contentgen
+    ports:
+      - "8003:8003"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+      EVAL_SAFETY_URL: http://eval-safety:8006
+    depends_on:
+      - mongodb
+      - api-rag
+      - eval-safety
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8003/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 8s
+
+  api-rag:
+    build: ../../services/rag
+    ports:
+      - "8005:8005"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8005/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  eval-safety:
+    build: ../../services/eval_safety
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8006/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-curriculum:
+    build: ../../services/curriculum
+    ports:
+      - "8006:8006"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8006/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-admin:
+    build: ../../services/admin
+    ports:
+      - "8007:8007"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8007/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-analytics:
+    build: ../../services/analytics
+    ports:
+      - "8008:8008"
+    volumes:
+      - ../../packages/common_utils:/app/common_utils:ro
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/edu
+      MONGODB_DB: edu
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8008/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  api-gateway:
+    build: ../../apps/api-gateway
+    environment:
+      ADAPT_URL: http://api-adaptation:8001
+      SESSIONS_URL: http://api-sessions:8002
+      CONTENT_URL: http://api-contentgen:8003
+      PROFILES_URL: http://api-profiles:8000
+      ANALYTICS_URL: http://api-analytics:8008
+      RAG_URL: http://api-rag:8005
+      RECOMMENDATIONS_ENABLED: "false"
+      FRONTEND_ORIGIN: http://localhost:3000
+    ports:
+      - "9090:9000"
+    depends_on:
+      - api-adaptation
+      - api-sessions
+      - api-contentgen
+      - api-profiles
+      - api-analytics
+      - api-rag
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:9000/healthz')"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  web:
+    build: ../../apps/web
+    environment:
+      NEXT_PUBLIC_API_GATEWAY: http://localhost:9090
+      NEXT_PUBLIC_ANALYTICS_URL: http://localhost:9090/api/analytics
+      NEXT_DISABLE_ESLINT_PLUGIN: "true"
+      NEXT_DISABLE_TYPECHECK: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-profiles
+      - api-contentgen
+      - api-analytics
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  mongo_data: {}
+  minio_data: {}

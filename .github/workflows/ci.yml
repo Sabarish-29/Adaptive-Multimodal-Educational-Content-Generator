@@ -1,0 +1,249 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  python-services:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [profiles, adaptation, contentgen, sessions]
+    env:
+      PYTHON_VERSION: '3.11'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install deps
+        run: |
+          pip install -r requirements-dev.txt -r services/${{ matrix.service }}/requirements.txt || true
+      - name: Ruff lint
+        run: |
+          ruff check services/${{ matrix.service }}
+      - name: Unit tests (if present)
+        run: |
+          if [ -d services/${{ matrix.service }}/tests ]; then pytest services/${{ matrix.service }}/tests -q; fi
+      - name: Core cross-service tests (fast mode)
+        if: matrix.service == 'sessions'
+        env:
+          FAST_TEST_MODE: 'true'
+          MONGODB_TIMEOUT_MS: '150'
+          RECOMMEND_HTTP_TIMEOUT: '1.0'
+        run: |
+          pytest -q tests/test_sse_recommendations.py::test_sse_recommendations_stream tests/test_sessions_memory_fallback.py tests/test_sse_fast_mode.py
+      - name: OpenAPI validation
+        if: matrix.service == 'profiles'
+        run: |
+          pip install openapi-spec-validator
+          python -c "from openapi_spec_validator import validate_spec;import yaml;validate_spec(yaml.safe_load(open('docs/api/openapi.yaml')))"
+      - name: Contract tests (schemathesis)
+        if: matrix.service == 'adaptation'
+        run: |
+          schemathesis run docs/api/openapi.yaml --hypothesis-deadline=500 --stateful=links || true
+      - name: Security scan (pip-audit)
+        run: |
+          pip-audit -r services/${{ matrix.service }}/requirements.txt
+      - name: Dependency policy
+        run: |
+          python scripts/dependency_policy.py
+      - name: Secret scan (gitleaks)
+        uses: zricethezav/gitleaks-action@v2
+        with:
+          config: .gitleaks.toml
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install --workspaces --include-workspace-root
+      - name: Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+      - name: Lint
+        working-directory: apps/web
+        run: npm run lint || echo "Lint completed with warnings"
+      - name: Unit tests
+        working-directory: apps/web
+        run: npm test -- --ci
+      - name: Install Playwright Browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps
+      - name: E2E tests
+        working-directory: apps/web
+        env:
+          CI: true
+        run: npm run e2e || true
+      - name: Print E2E summary
+        if: always()
+        working-directory: apps/web
+        run: |
+          if [ -f playwright-report/summary.json ]; then cat playwright-report/summary.json; else echo 'No summary.json'; fi
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+  fast-suite:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.11'
+      FAST_TEST_MODE: 'true'
+      MONGODB_TIMEOUT_MS: '150'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install deps (root)
+        run: |
+          pip install -r requirements-dev.txt
+      - name: Run fast focused tests
+        run: |
+          pytest -q tests/test_sessions_memory_fallback.py tests/test_sse_fast_mode.py tests/test_rate_limit_denied_metric.py::test_require_strong_encryption_enforced || exit 1
+      - name: Strong encryption success path
+        run: |
+          export FEATURE_FIELD_ENCRYPTION=true REQUIRE_STRONG_ENCRYPTION=true FIELD_ENCRYPTION_KEY=$(python scripts/gen_field_key.py 32)
+          pytest -q tests/test_encryption_roundtrip.py
+
+  full-tests:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.11'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install deps
+        run: |
+          pip install -r requirements-dev.txt
+      - name: Run full test suite (non-fast mode)
+        run: |
+          unset FAST_TEST_MODE || true
+          coverage run -m pytest -q
+      - name: Coverage report
+        run: |
+          coverage xml
+          coverage report  # fail-under via .coveragerc
+      - name: Dependency policy (full suite)
+        run: |
+          python scripts/dependency_policy.py
+      - name: Secret scan (gitleaks)
+        uses: zricethezav/gitleaks-action@v2
+        with:
+          config: .gitleaks.toml
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+  real-datastore:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'" \
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      PYTHON_VERSION: '3.11'
+      FORCE_REAL_MONGO: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install deps
+        run: |
+          pip install -r requirements-dev.txt -r services/sessions/requirements.txt || true
+      - name: Wait for Mongo health
+        run: |
+          for i in {1..12}; do nc -z localhost 27017 && break || sleep 5; done
+      - name: Real datastore critical tests
+        run: |
+          pytest -q tests/test_authz_profiles_negative.py::test_profiles_learner_forbidden_other_profile tests/test_sessions_memory_fallback.py::test_sessions_force_real_mongo || exit 1
+  integration-smoke:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install smoke deps
+        run: |
+          pip install -r services/sessions/requirements.txt -r services/adaptation/requirements.txt -r services/profiles/requirements.txt -r services/contentgen/requirements.txt requests sseclient-py
+      - name: Docker compose (core services)
+        run: |
+          docker compose -f infra/compose/docker-compose.dev.yml up -d --build mongodb redis api-profiles api-adaptation api-sessions api-contentgen
+          echo 'Waiting for health...' ; sleep 12
+          curl -sf http://localhost:8000/healthz || (echo 'profiles unhealthy' && exit 1)
+          curl -sf http://localhost:8001/healthz || (echo 'adaptation unhealthy' && exit 1)
+          curl -sf http://localhost:8002/healthz || (echo 'sessions unhealthy' && exit 1)
+          curl -sf http://localhost:8003/healthz || (echo 'contentgen unhealthy' && exit 1)
+      - name: Run integration smoke (with SSE)
+        run: |
+          python scripts/integration_smoke.py --sse-events 2 --out-json smoke_report.json
+      - name: Upload smoke report
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: smoke_report.json
+  # Optional load test (smoke) - can be triggered manually
+  load-test-sessions:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install k6
+        run: |
+          curl -s https://github.com/grafana/k6/releases/download/v0.49.0/k6-v0.49.0-linux-amd64.tar.gz -L -o k6.tgz
+          tar -xzf k6.tgz
+          sudo mv k6-v0.49.0-linux-amd64/k6 /usr/local/bin/k6
+      - name: Launch sessions service (dev)
+        run: |
+          python -m pip install -r services/sessions/requirements.txt
+          uvicorn services.sessions.sessions.main:app --port 8002 &
+          sleep 5
+      - name: Run k6 smoke
+        run: |
+          k6 run loadtests/sessions_recommend.js --vus 5 --duration 10s || true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install web deps
+        run: |
+          cd apps/web
+          npm ci || npm install
+      - name: Web lint (eslint)
+        run: |
+          cd apps/web
+          npx eslint src --ext .tsx,.ts || true

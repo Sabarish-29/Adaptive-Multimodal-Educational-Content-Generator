@@ -1,0 +1,49 @@
+global:
+  imagePullPolicy: IfNotPresent
+  imageRepository: your-docker-registry/adaptive
+  tag: latest
+  mongodbUri: mongodb://mongo:27017/edu
+  redisUrl: redis://redis:6379/0
+  requestIdHeader: X-Request-ID
+
+services:
+  adaptation:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+  contentgen:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+  sessions:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+  profiles:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  persistence:
+    enabled: false
+
+prometheusScrape: true
+scrapeInterval: 15s
+
+featureFlags:
+  caption: false
+  tts: false
+  fieldEncryption: false
+
+rateLimits:
+  contentgenPerMin: 60
+  sessionsPerMin: 120
+
+debounce:
+  adaptationTtl: 10
+
+cache:
+  contentgenTtl: 300
