@@ -1,0 +1,541 @@
+openapi: 3.1.0
+info:
+  title: Adaptive Multimodal Educational Content Generator API
+  version: 0.3.0
+  description: Phase 0 expanded endpoints (enhanced content bundle schema, provenance, evaluation linkage)
+security:
+  - bearerAuth: []
+servers:
+  - url: http://localhost
+paths:
+  /v1/learners/{id}/profile:
+    get:
+      summary: Get learner profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Learner profile
+    put:
+      summary: Update learner profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LearnerProfileUpdate'
+      responses:
+        '200': { description: Updated }
+  /v1/learners/{id}/consent:
+    post:
+      summary: Record consent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentRecord' }
+      responses:
+        '201': { description: Created }
+  /v1/generate/lesson:
+    post:
+      summary: Generate (or retrieve existing) a lesson bundle
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+        - in: header
+          name: X-Request-ID
+          required: false
+          description: Optional client-supplied request correlation id
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LessonGenerateRequest' }
+      responses:
+        '200':
+          description: Generated or cached content bundle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentBundleResponse' }
+  /v1/generate/caption:
+    post:
+      summary: Generate caption from image (feature gated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CaptionRequest' }
+      responses:
+        '200':
+          description: Caption generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  caption: { type: string }
+        '400': { description: Bad request / feature disabled }
+  /v1/generate/tts:
+    post:
+      summary: Generate TTS audio (feature gated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TTSRequest' }
+      responses:
+        '200':
+          description: Audio generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audio_b64: { type: string }
+        '400': { description: Bad request / feature disabled }
+  /v1/adaptation/recommend-next:
+    post:
+      summary: Recommend next activity (Thompson Sampling)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdaptationContext' }
+      responses:
+        '200':
+          description: Recommendation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdaptationRecommendation' }
+  /v1/adaptation/feedback:
+    post:
+      summary: Provide feedback to bandit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdaptationFeedback' }
+      responses:
+        '204': { description: Updated }
+        '200': { description: Accepted, content: { application/json: { schema: { $ref: '#/components/schemas/FeedbackAccepted' } } } }
+  /v1/rl/train:
+    post:
+      summary: RL training pipeline (placeholder)
+      responses:
+        '501':
+          description: Not implemented
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/rl/status:
+    get:
+      summary: RL status
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  detail: { type: string }
+  /v1/rl/offline-log:
+    post:
+      summary: Upload offline interaction logs (placeholder)
+      responses:
+        '501':
+          description: Not implemented
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/rl/policy/export:
+    get:
+      summary: Export current learned policy (placeholder)
+      responses:
+        '501':
+          description: Not implemented
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/sessions:
+    post:
+      summary: Start session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionStartRequest' }
+      responses:
+        '201': { description: Created }
+  /v1/sessions/{id}/events:
+    post:
+      summary: Post session event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionEvent' }
+      responses:
+        '202': { description: Accepted }
+  /v1/rag/index:
+    post:
+      summary: Index documents into RAG store
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RAGIndexRequest' }
+      responses:
+        '200': { description: Indexed }
+  /v1/rag/query:
+    post:
+      summary: Query RAG and get grounded answer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RAGQueryRequest' }
+      responses:
+        '200': { description: Answer with sources }
+  /v1/rag/sources/{answer_id}:
+    get:
+      summary: Retrieve sources for a prior answer
+      parameters:
+        - in: path
+          name: answer_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Sources }
+  /v1/evaluate/content:
+    post:
+      summary: Run content safety & pedagogy evaluation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentEvaluationRequest' }
+      responses:
+        '200': { description: Evaluation result }
+  /v1/evaluate/accessibility:
+    post:
+      summary: Run accessibility evaluation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessibilityEvaluationRequest' }
+      responses:
+        '200': { description: A11y result }
+  /v1/units:
+    post:
+      summary: Create unit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnitCreate' }
+      responses:
+        '201': { description: Created }
+  /v1/units/{unit_id}:
+    get:
+      summary: Get unit
+      parameters:
+        - in: path
+          name: unit_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Unit }
+  /v1/objectives:
+    post:
+      summary: Create objective
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ObjectiveCreate' }
+      responses:
+        '201': { description: Created }
+  /v1/units/{unit_id}/objectives:
+    get:
+      summary: List unit objectives
+      parameters:
+        - in: path
+          name: unit_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Objectives }
+  /v1/content/search:
+    post:
+      summary: Search objectives/text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SearchRequest' }
+      responses:
+        '200': { description: Search results }
+  /v1/models:
+    get:
+      summary: List available models
+      responses:
+        '200': { description: Models }
+  /v1/models/select:
+    post:
+      summary: Select model version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModelSelectRequest' }
+      responses:
+        '200': { description: Selected }
+  /v1/tenants/{tenant_id}/settings:
+    post:
+      summary: Update tenant settings
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantSettings' }
+      responses:
+        '200': { description: Updated }
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        detail: { type: string }
+    ContentBundleResponse:
+      type: object
+      properties:
+        bundle_id: { type: string }
+        cached: { type: boolean }
+        content_bundle: { $ref: '#/components/schemas/ContentBundle' }
+      required: [bundle_id, cached]
+    ContentBundle:
+      type: object
+      properties:
+        learner_id: { type: string }
+        unit_id: { type: string }
+        objective_id: { type: string }
+        content:
+          type: object
+          properties:
+            text: { type: string }
+            plain_language: { type: string, description: Simplified variant }
+        assets:
+          type: object
+          properties:
+            caption: { type: string }
+            audio_b64: { type: string, description: Base64 encoded audio }
+        hashes:
+          type: object
+          properties:
+            input_hash: { type: string }
+            output_hash: { type: string }
+          required: [input_hash, output_hash]
+        provenance:
+          type: object
+          properties:
+            model_id: { type: string }
+            model_version: { type: string }
+            prompt_id: { type: string }
+            provenance_hash: { type: string }
+            approx_tokens: { type: integer, description: Approximate token count of generated text }
+        created_at: { type: string, format: date-time }
+      required: [learner_id, unit_id, content, hashes, created_at]
+    LearnerProfile:
+      type: object
+      properties:
+        id: { type: string }
+        disabilities: { type: array, items: { type: string } }
+        accommodations: { type: object, additionalProperties: true }
+        preferences:
+          type: object
+          properties:
+            modalities: { type: array, items: { type: string } }
+            reading_level: { type: string }
+        languages: { type: array, items: { type: string } }
+        consent: { type: object }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    LearnerProfileUpdate:
+      type: object
+      properties:
+        disabilities: { type: array, items: { type: string } }
+        accommodations: { type: object, additionalProperties: true }
+        preferences:
+          type: object
+          properties:
+            modalities: { type: array, items: { type: string } }
+            reading_level: { type: string }
+        languages: { type: array, items: { type: string } }
+    ConsentRecord:
+      type: object
+      properties:
+        consent_type: { type: string }
+        granted_by: { type: string }
+        timestamp: { type: string, format: date-time }
+    LessonGenerateRequest:
+      type: object
+      required: [learner_id, unit_id, objectives]
+      properties:
+        learner_id: { type: string }
+        unit_id: { type: string }
+        objectives: { type: array, items: { type: string } }
+        modalities: { type: array, items: { type: string } }
+    CaptionRequest:
+      type: object
+      required: [image_b64]
+      properties:
+        image_b64: { type: string }
+        learner_id: { type: string }
+    TTSRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        voice: { type: string }
+        learner_id: { type: string }
+    AdaptationContext:
+      type: object
+      required: [learner_id]
+      properties:
+        learner_id: { type: string }
+        recent_accuracy: { type: number }
+        avg_time_ms: { type: number }
+        engagement: { type: number }
+    AdaptationFeedback:
+      type: object
+      required: [learner_id, arm, reward]
+      properties:
+        learner_id: { type: string }
+        arm: { type: string }
+        reward: { type: number }
+    FeedbackAccepted:
+      type: object
+      properties:
+        status: { type: string, enum: [accepted] }
+      required: [status]
+    SessionStartRequest:
+      type: object
+      required: [learner_id, unit_id]
+      properties:
+        learner_id: { type: string }
+        unit_id: { type: string }
+        device_context: { type: object }
+    SessionEvent:
+      type: object
+      required: [type, timestamp]
+      properties:
+        type: { type: string }
+        timestamp: { type: string, format: date-time }
+        payload: { type: object }
+    RAGIndexRequest:
+      type: object
+      properties:
+        documents:
+          type: array
+          items: { $ref: '#/components/schemas/IndexDocument' }
+    IndexDocument:
+      type: object
+      properties:
+        doc_id: { type: string }
+        text: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    RAGQueryRequest:
+      type: object
+      properties:
+        query: { type: string }
+        top_k: { type: integer, default: 3 }
+    ContentEvaluationRequest:
+      type: object
+      properties:
+        bundle_id: { type: string }
+        text: { type: string }
+    AccessibilityEvaluationRequest:
+      type: object
+      properties:
+        bundle_id: { type: string }
+        text: { type: string }
+        alt_text_present: { type: boolean }
+        captions_present: { type: boolean }
+    UnitCreate:
+      type: object
+      properties:
+        unit_id: { type: string }
+        title: { type: string }
+        description: { type: string }
+    ObjectiveCreate:
+      type: object
+      properties:
+        unit_id: { type: string }
+        objective_id: { type: string }
+        text: { type: string }
+    SearchRequest:
+      type: object
+      properties:
+        query: { type: string }
+        limit: { type: integer, default: 5 }
+    ModelSelectRequest:
+      type: object
+      properties:
+        name: { type: string }
+        version: { type: string }
+    TenantSettings:
+      type: object
+      properties:
+        feature_flags:
+          type: object
+          additionalProperties:
+            type: boolean
+    AdaptationRecommendation:
+      type: object
+      properties:
+        arm_id: { type: string }
+        modalities: { type: array, items: { type: string } }
+        chunk_size: { type: string }
+        difficulty: { type: number }
+        policy_id: { type: string }
+        issued_at: { type: string }
+        sample_score: { type: number }
+        expected_mean: { type: number }
+        alpha: { type: number }
+        beta: { type: number }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
