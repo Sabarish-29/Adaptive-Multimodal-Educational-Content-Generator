@@ -1,0 +1,35 @@
+{{- if .Values.services.adaptation.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "adaptive.labels" . | nindent 2 | fromYaml | get "app.kubernetes.io/name" }}-adaptation
+  labels:
+{{ include "adaptive.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.services.adaptation.replicaCount }}
+  selector:
+    matchLabels:
+      app: adaptation
+  template:
+    metadata:
+      labels:
+        app: adaptation
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        {{- end }}
+    spec:
+      containers:
+        - name: adaptation
+          image: {{ .Values.global.imageRepository }}-adaptation:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MONGODB_URI
+              value: {{ .Values.global.mongodbUri | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.global.redisUrl | quote }}
+            - name: ADAPTATION_DEBOUNCE_TTL
+              value: {{ .Values.debounce.adaptationTtl | quote }}
+          ports:
+            - containerPort: 8000
+{{- end }}

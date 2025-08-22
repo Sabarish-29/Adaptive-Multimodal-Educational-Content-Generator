@@ -1,0 +1,37 @@
+{{- if .Values.services.sessions.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sessions
+  labels:
+{{ include "adaptive.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.services.sessions.replicaCount }}
+  selector:
+    matchLabels:
+      app: sessions
+  template:
+    metadata:
+      labels:
+        app: sessions
+        {{- if .Values.prometheusScrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        {{- end }}
+    spec:
+      containers:
+        - name: sessions
+          image: {{ .Values.global.imageRepository }}-sessions:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: MONGODB_URI
+              value: {{ .Values.global.mongodbUri | quote }}
+            - name: REDIS_URL
+              value: {{ .Values.global.redisUrl | quote }}
+            - name: SESSIONS_RATE_PER_MIN
+              value: {{ .Values.rateLimits.sessionsPerMin | quote }}
+            - name: RECOMMEND_STREAM_INTERVAL
+              value: "5"
+          ports:
+            - containerPort: 8000
+{{- end }}

@@ -1,0 +1,57 @@
+groups:
+  - name: sessions_adaptation_core
+    rules:
+      - alert: AdaptationCircuitOpen
+        expr: sessions_adaptation_circuit_state == 1
+        for: 10m
+        labels:
+          severity: page
+          service: sessions
+        annotations:
+          summary: "Adaptation circuit breaker open"
+          description: "sessions_adaptation_circuit_state=1 for >10m; adaptation downstream likely unhealthy"
+      - alert: HighAdaptationLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(adaptation_call_latency_seconds_bucket{status="ok"}[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warn
+          service: sessions
+        annotations:
+          summary: "Adaptation p95 latency high"
+          description: "p95 >500ms over 5m window."
+      - alert: HighSessionEventIngestLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(session_event_ingest_latency_seconds_bucket{status="accepted"}[5m])) by (le)) > 0.3
+        for: 5m
+        labels:
+          severity: warn
+          service: sessions
+        annotations:
+          summary: "Session event ingest p95 latency high"
+          description: "p95 >300ms over 5m."
+      - alert: SessionRateLimitSpike
+        expr: increase(sessions_rate_limited_total[5m]) > (5 * increase(sessions_rate_limited_total[30m]) / 6)
+        for: 5m
+        labels:
+          severity: info
+          service: sessions
+        annotations:
+          summary: "Spike in rate-limited sessions requests"
+          description: "5m increase anomalously high vs 30m baseline (possible abuse or config regression)."
+      - alert: AdaptationErrorBudgetBurnFast
+        expr: (sum(rate(adaptation_call_latency_seconds_count{status!="ok"}[5m])) / sum(rate(adaptation_call_latency_seconds_count[5m]))) > 0.05
+        for: 10m
+        labels:
+          severity: page
+          slo: adaptation-availability
+        annotations:
+          summary: "Fast burn adaptation errors"
+          description: ">5% non-ok adaptation calls over 10m."
+      - alert: AdaptationErrorBudgetBurnSlow
+        expr: (sum(rate(adaptation_call_latency_seconds_count{status!="ok"}[1h])) / sum(rate(adaptation_call_latency_seconds_count[1h]))) > 0.02
+        for: 2h
+        labels:
+          severity: warn
+          slo: adaptation-availability
+        annotations:
+          summary: "Slow burn adaptation errors"
+          description: ">2% non-ok adaptation calls over 1h."
