@@ -1,0 +1,9 @@
+[project]
+name = "adaptive-auth"
+version = "0.1.0"
+description = "Shared auth utilities (JWT, RBAC)"
+requires-python = ">=3.11"
+dependencies = [
+  "pyjwt==2.8.0",
+  "fastapi>=0.110.0",
+]
