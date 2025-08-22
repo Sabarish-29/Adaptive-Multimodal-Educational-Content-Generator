@@ -1,0 +1,9 @@
+{
+  "extends": ["next", "next/core-web-vitals"],
+  "plugins": ["jsx-a11y"],
+  "rules": {
+    "react/jsx-key": ["warn"],
+    "jsx-a11y/aria-role": "warn",
+    "jsx-a11y/alt-text": "warn"
+  }
+}
