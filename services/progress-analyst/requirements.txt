@@ -1,0 +1,20 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+httpx==0.25.1
+
+# GNN
+torch>=2.1.0
+torch-geometric>=2.4.0
+numpy>=1.24.0
+
+# Graph
+neo4j>=5.14.0
+networkx>=3.2.0
+
+# Visualization
+plotly>=5.18.0
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2

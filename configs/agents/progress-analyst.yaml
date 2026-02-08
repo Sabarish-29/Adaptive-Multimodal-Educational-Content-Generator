@@ -1,0 +1,47 @@
+# Progress Analyst Agent Configuration
+# ======================================
+
+service:
+  name: progress-analyst
+  version: "1.0.0"
+  port: 8015
+  log_level: INFO
+
+# Mastery tracking
+mastery:
+  update_method: bayesian
+  prior_weight: 0.7
+  evidence_weight: 0.3
+  mastery_threshold: 0.85    # considered "mastered"
+  decay_rate: 0.01           # daily decay if no practice
+  min_observations: 3        # before confidence is high
+
+# Skill graph / GNN
+skill_graph:
+  model_path: "ml/models/knowledge_graph_gnn/model.pt"
+  embedding_dim: 64
+  propagation_hops: 2
+  update_interval_seconds: 60
+
+# Learning velocity
+velocity:
+  window_interactions: 20
+  min_interactions: 5
+  smoothing_factor: 0.3
+
+# Constellation visualisation
+constellation:
+  layout: circular
+  mastery_colors:
+    mastered: "#FFD700"      # gold
+    in_progress: "#4169E1"   # royal blue
+    not_started: "#808080"   # gray
+  node_size_range: [8, 24]
+  edge_opacity: 0.3
+  animation: true
+
+# Reporting
+reports:
+  daily_summary: true
+  weekly_digest: true
+  export_formats: [json, pdf]

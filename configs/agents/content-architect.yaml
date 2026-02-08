@@ -1,0 +1,75 @@
+# Content Architect Agent Configuration
+# =======================================
+
+service:
+  name: content-architect
+  version: "1.0.0"
+  port: 8012
+  log_level: INFO
+
+# Content generation settings
+generation:
+  default_modality: TEXT
+  max_concurrent_generations: 5
+  timeout_seconds: 30
+  cache_ttl_seconds: 3600
+
+# Modality selection thresholds (cognitive load → modality)
+modality_routing:
+  high_load:    # cognitive_load > 0.7
+    preferred: [VOICE, IMAGE, INTERACTIVE]
+    avoid: [TEXT]
+  medium_load:  # 0.4 < cognitive_load <= 0.7
+    preferred: [TEXT, IMAGE, INTERACTIVE]
+    avoid: []
+  low_load:     # cognitive_load <= 0.4
+    preferred: [TEXT, INTERACTIVE, VIDEO]
+    avoid: []
+
+# Knowledge graph (Neo4j)
+knowledge_graph:
+  uri: "bolt://localhost:7687"
+  auth:
+    username: "neo4j"
+    password: "${NEO4J_PASSWORD:-neurosync_kg}"
+  database: "neo4j"
+  max_connection_pool_size: 50
+
+# RAG settings
+rag:
+  vector_store:
+    provider: qdrant
+    url: "http://localhost:6333"
+    collection: "educational_content"
+    embedding_dim: 384
+  embedding:
+    model: "all-MiniLM-L6-v2"
+    batch_size: 32
+  retrieval:
+    top_k: 10
+    similarity_threshold: 0.5
+  reranker:
+    model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    top_n: 5
+
+# LLM provider for text generation
+llm:
+  provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.7
+  max_tokens: 2048
+  fallback_model: "gpt-3.5-turbo"
+
+# Image generation
+image:
+  provider: "stable-diffusion"
+  model: "sdxl-turbo"
+  style: "educational-diagram"
+  max_resolution: [1024, 1024]
+
+# Voice generation
+voice:
+  provider: "elevenlabs"
+  voice_id: "neutral-educator"
+  speed: 1.0
+  format: "mp3"

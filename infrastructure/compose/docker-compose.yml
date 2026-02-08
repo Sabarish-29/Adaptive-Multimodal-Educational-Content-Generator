@@ -1,0 +1,53 @@
+# NeuroSync AI – Full Development Stack
+#
+# Quick start:
+#   docker compose -f infrastructure/compose/docker-compose.yml up -d
+#
+# Or use the Makefile:
+#   make ns-up
+
+services:
+  # ─── Data Stores ─────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:6.0
+    container_name: ns-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: neurosync
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: ns-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    container_name: ns-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  mongo_data: {}
+  minio_data: {}

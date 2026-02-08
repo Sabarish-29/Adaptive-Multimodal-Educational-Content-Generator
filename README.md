@@ -1,219 +1,239 @@
-# Adaptive Multimodal Educational Content Generator
+<div align="center">
 
-Version: 1.1 (August 18, 2025)
+# NeuroSync AI
 
-An accessibility-first, adaptive, multimodal educational platform for neurodiverse learners. This monorepo contains frontend (Next.js), backend microservices (FastAPI), model adapters, RAG pipeline, contextual bandit adaptation, evaluation & safety, and analytics — all backed by MongoDB.
+### Multi-Agent Cognitive Learning Ecosystem
 
-## Architecture (Quick View)
-### Streaming Generation (Phase 11)
-Frontend now supports experimental streaming lesson generation mode (toggle "Stream"). It expects a backend endpoint `POST /v1/generate/lesson/stream` returning newline-delimited JSON objects:
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org)
+[![License](https://img.shields.io/badge/license-Apache--2.0-orange.svg)](LICENSE)
+
+*An AI-powered adaptive education platform that uses specialised agents to monitor cognitive load in real-time, generate personalised multimodal content, and deliver intelligent interventions — transforming how students learn.*
+
+</div>
+
+---
+
+## What is NeuroSync AI?
+
+NeuroSync AI replaces traditional monolithic adaptive learning with a **network of 6 specialised AI agents** coordinated by a LangGraph-based orchestrator. Each agent handles one aspect of the learning experience:
+
+| Agent | Port | Responsibility |
+|-------|------|---------------|
+| **Cognitive Guardian** | 8011 | Real-time cognitive load monitoring, attention tracking, fatigue estimation |
+| **Content Architect** | 8012 | Multi-modal content generation, knowledge graph, RAG pipeline |
+| **Tutor Agent** | 8013 | Socratic teaching, progressive hints, answer evaluation |
+| **Intervention Agent** | 8014 | DQN-based intervention selection, break scheduling |
+| **Progress Analyst** | 8015 | Bayesian mastery tracking, learning velocity, constellation visualisation |
+| **Peer Connector** | 8016 | Intelligent peer matching, federated learning with differential privacy |
+
+The **Orchestrator** (port 8010) coordinates the agents via a LangGraph state machine that loops until mastery > 0.85, routing to the Intervention Agent when cognitive load exceeds 0.7.
+
+## Architecture
+
 ```
-{"part":"Introduction ..."}
-{"part":"Section 1 ..."}
-...
-{"part":"Summary ...","done":true}
+┌─────────────────────────────────────────────────────┐
+│              Frontend (Next.js 14)                  │
+│         Constellation UI · Learning Interface       │
+└────────────────────┬────────────────────────────────┘
+                     │ REST / WebSocket / SSE
+                     ▼
+┌─────────────────────────────────────────────────────┐
+│              API Gateway (FastAPI :9090)             │
+└────────────────────┬────────────────────────────────┘
+                     ▼
+          ┌── Orchestrator (8010) ──┐
+          │   LangGraph Engine      │
+          └─┬──┬──┬──┬──┬──┬───────┘
+            │  │  │  │  │  │
+  ┌─────────┘  │  │  │  │  └─────────┐
+  ▼            ▼  ▼  ▼  ▼            ▼
+Cognitive   Content Tutor Inter-  Progress  Peer
+Guardian    Architect Agent vention Analyst  Connector
+(8011)      (8012)  (8013) (8014)  (8015)   (8016)
+  │            │       │      │       │        │
+  └────────────┴───────┴──┬───┴───────┴────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   Kafka (events)   Neo4j (knowledge)  Qdrant (vectors)
+        │
+   MongoDB · Redis · MinIO
 ```
-Each line must be a standalone JSON object; `part` is appended in order. Final object SHOULD include `done:true`. Errors should terminate the response early; client emits `gen.stream.error` telemetry.
 
-```
-UI (Next.js) --> API Services (FastAPI) --> MongoDB / Redis / MinIO
-							   |             \- Vector / RAG (hash-embed stub)
-							   \-> Model Adapters (LLM/VLM/TTS stubs)
-```
+## Quick Start
 
-## Quickstart (Local)
+### Prerequisites
 
-Prereqs: Docker, Docker Compose, Node 18+, Python 3.11+, Make (optional on Windows via `make.exe` or use npm scripts), GPU (optional) for model services.
+- Python 3.11+, Node.js 20+, Docker & Docker Compose v2
 
-1. Copy env templates:
-```
-cp .env.example .env
-```
-2. Start stack:
-```
-docker compose -f infra/compose/docker-compose.dev.yml up -d --build
-```
-3. Seed demo data:
-```
-python data/seeds/seed_demo.py
-```
-4. Run demo flow (optional):
-```
-python scripts/demo_flow.py
-```
-5. Visit web app: http://localhost:3000
+### 1. Clone & configure
 
-SSE Recommendations (sessions) stream every 5s after starting a session (see demo_flow or UI integration forthcoming).
-
-### Integration Smoke Test
-Run a fast cross-service validation (health, session create, adaptation, SSE optional, metrics):
-```
-python scripts/integration_smoke.py --sse-events 2
-```
-Skip SSE for quicker CI baseline:
-```
-python scripts/integration_smoke.py --skip-sse
-```
-Exit code is non-zero on failure, so this can gate PRs. Use `--out-json report.json` to archive results.
-
-Fallback Behavior (ContentGen): If legacy `contentgen.main` fails to import (e.g. path issues), the boot wrapper loads a minimal module (`contentgen_minimal`) providing `/healthz`, `/metrics`, and `POST /v1/generate/lesson` so the smoke test still passes. Health JSON will include `"mode":"minimal"` in this case.
-
-### Feature Flags
-Set in environment (`.env`) to toggle optional components:
-	- Optional: set `FIELD_ENCRYPTION_KEY` (base64 32 bytes) to enable AES-GCM instead of placeholder if `cryptography` installed.
-	- Optional: `PII_HASH_SALT` for stable HMAC-SHA256 hashing of identifiers.
-	- Optional: `REQUIRE_STRONG_ENCRYPTION=true` to fail startup if AES-GCM not active while feature enabled.
-### Feature Flags
-Set in environment (`.env`) to toggle optional components:
-- `FEATURE_CAPTION=true` enable caption endpoint & asset generation
-- `FEATURE_TTS=true` enable TTS synthesis endpoint & audio asset
-- `FEATURE_FIELD_ENCRYPTION=true` enables pluggable field encryption subsystem.
-	- Key sourcing priority:
-		1. Static local key: `FIELD_ENCRYPTION_KEY` (base64 16/24/32 raw bytes) -> AES-GCM (encryption_mode=2)
-		2. AWS KMS data key: set `ENCRYPTION_PROVIDER=aws_kms` and `AWS_KMS_KEY_ID=<arn|alias/...>` -> generates and caches an AES_256 data key via `GenerateDataKey` (encryption_mode=3)
-		3. Placeholder fallback: XOR/base64 `SimpleObfuscator` (encryption_mode=1)
-	- Rotation (KMS): refresh interval via `ENCRYPTION_KMS_DATA_KEY_TTL_SECONDS` (default 3600) – process-local cache (lightweight, not envelope per record yet).
-	- Hashing: `PII_HASH_SALT` for deterministic HMAC-SHA256 of identifiers (non-reversible, for joins/metrics).
-	- Enforcement: `REQUIRE_STRONG_ENCRYPTION=true` forces import-time failure unless either a valid `FIELD_ENCRYPTION_KEY` *or* a usable KMS config is present when feature is enabled.
-	- Future hardening (not yet implemented): persist ciphertext data key, dual-key rotation window, per-record envelope keys.
-
-### Testing / Performance Env Vars
-These variables accelerate local & CI test runs without altering production behavior:
-
-
-Encryption enforcement:
-
-### Local Testing Speedups
-
-| Concern | Default Behavior | FAST / Fallback Behavior |
-|---------|------------------|--------------------------|
-| Sessions SSE stream | Calls adaptation service each interval (HTTP) | Synthetic recommendations inline when `FAST_TEST_MODE=true` |
-| Mongo connection | Driver waits up to several seconds for server selection | If connection fails within `MONGODB_TIMEOUT_MS`, in-memory stub DB is used (sessions) |
-| Adaptation call timeout | 5.0s HTTP client timeout | 1.5s (or value from `RECOMMEND_HTTP_TIMEOUT`) in fast mode |
-
-Example fast test run:
 ```bash
-FAST_TEST_MODE=true MONGODB_TIMEOUT_MS=200 pytest -q
+git clone <repo-url>
+cd Adaptive-Multimodal-Educational-Content-Generator
+cp configs/environments/development.env .env
+# Edit .env → set OPENAI_API_KEY
 ```
 
-To test strong encryption success path:
+### 2. Start infrastructure
+
 ```bash
-export FEATURE_FIELD_ENCRYPTION=true REQUIRE_STRONG_ENCRYPTION=true
-export FIELD_ENCRYPTION_KEY=$(python - <<'PY'
-import os, base64; print(base64.b64encode(os.urandom(32)).decode())
-PY
-)
-pytest -q tests/test_encryption_roundtrip.py
+# Core data stores
+docker compose -f infrastructure/compose/docker-compose.yml up -d
+
+# AI infrastructure (Kafka, Neo4j, Qdrant, monitoring)
+docker compose -f infrastructure/compose/docker-compose.infra.yml up -d
 ```
 
-To verify enforcement failure (should raise at import):
-Generate a strong (32-byte) encryption key quickly:
+### 3. Initialise databases
+
 ```bash
-python scripts/gen_field_key.py 32
-# or without length (defaults 32)
-python scripts/gen_field_key.py > key.txt
+pip install motor neo4j
+python scripts/setup/init_databases.py
+python scripts/setup/seed_knowledge_graph.py
 ```
+
+### 4. Start agents
+
 ```bash
-export FEATURE_FIELD_ENCRYPTION=true REQUIRE_STRONG_ENCRYPTION=true
-unset FIELD_ENCRYPTION_KEY
-pytest -q tests/test_rate_limit_denied_metric.py::test_require_strong_encryption_enforced
+# Option A: Docker Compose (recommended)
+docker compose -f infrastructure/compose/docker-compose.agents.yml up --build
+
+# Option B: Local development (each in separate terminal)
+uvicorn services.orchestrator.main:app --port 8010 --reload
+uvicorn services.cognitive_guardian.main:app --port 8011 --reload
+uvicorn services.content_architect.main:app --port 8012 --reload
+uvicorn services.tutor_agent.main:app --port 8013 --reload
+uvicorn services.intervention_agent.main:app --port 8014 --reload
+uvicorn services.progress_analyst.main:app --port 8015 --reload
+uvicorn services.peer_connector.main:app --port 8016 --reload
 ```
 
-### Request Correlation
-Clients may send `X-Request-ID` (otherwise generated). Propagated in responses & logs for cross-service tracing. Frontend demo attaches a per-page UUID; SSE includes `rid` query param fallback.
+### 5. Verify
 
-### Rate Limiting
-Redis-backed sliding window (falls back to in-memory) limiting for mutating endpoints (POST/PUT/PATCH):
-	- fine-grained: `SESSIONS_CREATE_RATE_PER_MIN` (session creation) and `SESSIONS_EVENT_RATE_PER_MIN` (event ingestion) if provided
-Returns `429` with `{ "detail": "rate_limit_exceeded" }` and includes `X-RateLimit-Remaining` header on successful requests.
+```bash
+curl http://localhost:8010/health   # Orchestrator
+curl http://localhost:8011/health   # Cognitive Guardian
+# ... all agents should return {"status": "ok"}
+```
 
-SSE tuning (sessions service):
-- `SESSIONS_SSE_HEARTBEAT_SECONDS` (default 15) periodic heartbeat event interval.
-- `SESSIONS_SSE_MAX_EVENTS_PER_SEC` (0 = unlimited) throttles recommendation events to mitigate client backpressure or burst CPU.
+### 6. Run legacy services (optional)
 
-### Caching
-Disable by omitting Redis or leaving `aioredis` uninstalled.
+```bash
+powershell scripts/run_all_services.ps1
+```
 
-### Metrics (Prometheus)
-Core sessions-related:
-- `sessions_recommendation_events_total{source="synthetic"|"http"}`
-- `adaptation_call_latency_seconds{status="ok"|"unavailable"|"error"}` (Histogram optional)
-- `sessions_adaptation_circuit_state` (Gauge 0=closed,1=open,2=half_open) & `sessions_adaptation_circuit_open_total`
-- `sessions_sse_heartbeats_total`
-- `sessions_sse_disconnects_total`
-Scrape each service `/metrics` endpoint.
+### 7. Frontend
 
-### Dev Tooling
-- Coverage enforced via `.coveragerc` (current fail-under 80%; raise incrementally after sustained green).
-- Load tests: see `loadtests/` (`sessions_recommend.js`, `sessions_adaptation_mix.js`) and baseline results in `docs/perf/`.
-- Secret scanning via `gitleaks` (config: `.gitleaks.toml`).
-- Dependency policy + vulnerability gate: `scripts/dependency_policy.py` (allowlists: `.dependency-allowlist`, `.vuln-allowlist`).
+```bash
+cd apps/web && npm install && npm run dev
+# Visit http://localhost:3000
+```
 
-### Circuit Breaker / Adaptive Retry (Sessions -> Adaptation)
-Environment variables:
-- `SESSIONS_ADAPTATION_CB_FAILURE_THRESHOLD` (default 3)
-- `SESSIONS_ADAPTATION_CB_RESET_SECONDS` (default 30)
-- `SESSIONS_ADAPTATION_RETRY_BACKOFF_BASE` (default 0.5)
-- `SESSIONS_ADAPTATION_RETRY_BACKOFF_MAX` (default 5.0)
+## Project Structure
 
-Metrics:
-- `sessions_adaptation_circuit_state` (0=closed,1=open,2=half_open)
-- `sessions_adaptation_circuit_open_total`
+```
+├── services/
+│   ├── orchestrator/         # LangGraph-based agent coordinator (8010)
+│   ├── cognitive-guardian/    # Cognitive load monitoring (8011)
+│   ├── content-architect/    # Multi-modal content generation (8012)
+│   ├── tutor-agent/          # Socratic teaching + hints (8013)
+│   ├── intervention-agent/   # RL-based intervention selection (8014)
+│   ├── progress-analyst/     # Mastery tracking + visualisation (8015)
+│   ├── peer-connector/       # Peer matching + federated learning (8016)
+│   ├── legacy/               # Preserved v1 services
+│   ├── adaptation/           # Legacy adaptation service (8001)
+│   ├── sessions/             # Legacy sessions service (8002)
+│   └── ...                   # Other legacy services
+├── packages/
+│   ├── ml-models/            # Shared ML model abstractions
+│   ├── event-schemas/        # Pydantic event schemas (Kafka)
+│   └── agent-sdk/            # Agent communication SDK
+├── infrastructure/
+│   ├── compose/              # Docker Compose files
+│   └── docker/               # Base Dockerfiles
+├── configs/
+│   ├── agents/               # Per-agent YAML configuration
+│   ├── models/               # ML model hyper-parameters
+│   └── environments/         # Environment files (dev/staging/prod)
+├── ml/
+│   └── training/             # ML training pipelines
+│       ├── cognitive_load_lstm/
+│       ├── knowledge_graph_gnn/
+│       └── teaching_policy_dqn/
+├── apps/
+│   ├── api-gateway/          # FastAPI gateway (:9090)
+│   └── web/                  # Next.js 14 frontend
+├── tests/
+│   ├── unit/                 # Agent unit tests
+│   ├── integration/          # Inter-agent communication tests
+│   └── e2e/                  # Full learning session tests
+├── docs/
+│   ├── architecture/         # Architecture documentation
+│   └── development/          # Setup & development guides
+└── scripts/
+    └── setup/                # Database init, KG seeding, Kafka topics
+```
 
-### RL Placeholders
-Endpoints under `/v1/rl/*` return 501 (except status) pending future reinforcement learning phase.
+## ML Models
 
-## Key Services (Phase 0)
+| Model | Type | Purpose |
+|-------|------|---------|
+| Cognitive Load LSTM | PyTorch LSTM | Predict future cognitive load |
+| Knowledge Graph GNN | PyTorch Geometric GCN | Infer mastery for unobserved concepts |
+| Teaching Policy DQN | PyTorch DQN | Learn optimal intervention strategies |
+
+Train models:
+```bash
+python ml/training/cognitive_load_lstm/train.py --epochs 50
+python ml/training/teaching_policy_dqn/train.py --epochs 200
+```
+
+## Testing
+
+```bash
+pytest tests/unit/ -v                          # Unit tests
+pytest tests/integration/ -v -m integration    # Integration (services required)
+pytest tests/e2e/ -v -m e2e                    # End-to-end
+```
+
+## Monitoring
+
+- **Prometheus:** http://localhost:9090
+- **Grafana:** http://localhost:3001 (admin/admin)
+
+All agents expose `/metrics` endpoints scraped by Prometheus.
 
 ## Documentation
-### Continuous Integration Overview
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
 
-To emulate CI fast suite locally:
-```bash
-FAST_TEST_MODE=true MONGODB_TIMEOUT_MS=150 pytest -q tests/test_sessions_memory_fallback.py tests/test_sse_fast_mode.py tests/test_rate_limit_denied_metric.py::test_require_strong_encryption_enforced
-```
-Runbooks: see `docs/runbooks/*` (redis_outage, rate_limit_spike, encryption_key_rotation).
-Schema & Migrations scaffold: `scripts/migrations/` and `schema_version` field on new writes.
-Architecture / Security / Operations docs in `docs/` for deeper details.
+- [Architecture Overview](docs/architecture/01-overview.md)
+- [Agent Reference](docs/architecture/02-agents.md)
+- [Data Flow](docs/architecture/03-data-flow.md)
+- [ML Models](docs/architecture/04-ml-models.md)
+- [Setup Guide](docs/development/setup-guide.md)
+- [Agent Development](docs/development/agent-development.md)
+- [Testing Guide](docs/development/testing-guide.md)
 
-### Load Testing & Performance Regression
+---
 
-K6 script `loadtest/k6_sessions.js` exercises session creation and single event ingest per iteration.
+## Legacy System
 
-Establish a baseline (store artifact under version control or artifact storage):
+The original adaptive learning platform services remain under `services/` and are fully functional. Legacy services include profiles (8000), adaptation (8001), sessions (8002), content generation (8003), RAG (8005), curriculum (8006), admin (8007), and analytics (8008). See [README.legacy.md](README.legacy.md) for the original documentation including feature flags, encryption, rate limiting, circuit breakers, and SSE.
 
-```bash
-k6 run --vus 10 --duration 1m --summary-export results/baseline.json loadtest/k6_sessions.js
-```
-
-Run a comparison load and export current results:
+## Makefile
 
 ```bash
-k6 run --vus 10 --duration 1m --summary-export results/latest.json loadtest/k6_sessions.js
+make ns-up          # Start full NeuroSync stack
+make ns-down        # Stop everything
+make ns-agents      # Start only agents
+make ns-infra       # Start only infrastructure
+make ns-test        # Run all tests
+make ns-lint        # Lint Python code
+make ns-train-all   # Train all ML models
 ```
-
-Check for p95 regression (>20% increase by default) using the regression script:
-
-```bash
-python scripts/perf_regression.py --current results/latest.json --baseline results/baseline.json --max-p95-increase 0.2
-```
-
-Integrate into nightly CI: run k6, then perf_regression; fail job on regression to surface early performance drift.
 
 ## License
-Apache-2.0 (placeholder)
 
-## Frontend ↔ Backend Integration (Local Dev)
-
-1. Start Python services with hot reload:
-	- `pwsh scripts/run_all_services.ps1` (adaptation :8001, contentgen :8002, sessions :8003, profiles :8004, rag :8005)
-2. Frontend env file `apps/web/.env.local` (added) maps these service URLs via `NEXT_PUBLIC_*` vars consumed in `src/lib/api.ts`.
-3. Run Next.js dev: `cd apps/web; npm run dev` and visit http://localhost:3000.
-4. CORS: Sessions & Adaptation now include permissive dev CORS (origin `FRONTEND_ORIGIN` env or http://localhost:3000). For production prefer a gateway or same-origin deployment and remove broad CORS.
-5. SSE: Session recommendations stream through `/v1/sessions/{id}/live` (Server-Sent Events). If/when auth is enforced, use cookie-based auth or a signed query token—EventSource cannot add custom Authorization headers.
-6. Optional Gateway: Minimal FastAPI gateway at `apps/api-gateway/main.py` can unify routes under one origin (run `uvicorn apps.api-gateway.main:app --reload --port 9000`). Frontend can then switch to relative `/api/...` calls (future refactor: introduce a single `NEXT_PUBLIC_API_BASE`).
-7. Request Correlation: Frontend adds `X-Request-ID`; SSE includes `rid` parameter for linkage; keep this for distributed tracing.
-8. Rate Limit Feedback: Frontend should detect HTTP 429 and surface a retry-after message (TODO UI enhancement).
-
-Security Note: Dev mock auth still issues an unsigned base64 token; replace with real JWT + HttpOnly cookie before moving beyond local prototyping.
+Apache-2.0

@@ -1,0 +1,57 @@
+# Orchestrator Configuration
+# ============================
+
+service:
+  name: orchestrator
+  version: "1.0.0"
+  port: 8010
+  log_level: INFO
+
+# Agent endpoints
+agents:
+  cognitive_guardian:
+    url: "http://localhost:8011"
+    timeout_seconds: 10
+    retries: 3
+  content_architect:
+    url: "http://localhost:8012"
+    timeout_seconds: 30
+    retries: 2
+  tutor_agent:
+    url: "http://localhost:8013"
+    timeout_seconds: 15
+    retries: 2
+  intervention_agent:
+    url: "http://localhost:8014"
+    timeout_seconds: 10
+    retries: 3
+  progress_analyst:
+    url: "http://localhost:8015"
+    timeout_seconds: 10
+    retries: 2
+  peer_connector:
+    url: "http://localhost:8016"
+    timeout_seconds: 10
+    retries: 2
+
+# LangGraph workflow
+workflow:
+  max_iterations: 20
+  mastery_target: 0.85
+  cognitive_load_threshold: 0.7
+  enable_peer_matching: false  # experimental
+
+# Circuit breaker
+circuit_breaker:
+  failure_threshold: 5
+  recovery_timeout_seconds: 30
+  half_open_requests: 3
+
+# Event bus (Kafka)
+events:
+  broker: "localhost:9092"
+  topics:
+    session_events: "neurosync.sessions"
+    cognitive_events: "neurosync.cognitive"
+    content_events: "neurosync.content"
+    intervention_events: "neurosync.interventions"

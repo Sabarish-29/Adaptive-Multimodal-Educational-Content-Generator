@@ -1,0 +1,79 @@
+# NeuroSync AI – ML Model Configurations
+# =========================================
+
+models:
+  # Cognitive Load LSTM
+  cognitive_load_lstm:
+    type: lstm
+    input_features: 5
+    hidden_dim: 64
+    num_layers: 2
+    dropout: 0.2
+    output_dim: 1
+    sequence_length: 10
+    training:
+      epochs: 50
+      batch_size: 32
+      learning_rate: 0.001
+      optimizer: adam
+      loss: mse
+      early_stopping_patience: 5
+    inference:
+      model_path: "ml/models/cognitive_load_lstm/model.pt"
+      device: "cpu"        # cpu | cuda
+      batch_size: 1
+
+  # Knowledge Graph GNN
+  knowledge_graph_gnn:
+    type: gcn
+    input_dim: 16
+    hidden_dim: 64
+    output_dim: 1          # mastery score
+    num_layers: 3
+    dropout: 0.3
+    training:
+      epochs: 20
+      batch_size: 64
+      learning_rate: 0.001
+      optimizer: adam
+      loss: mse
+    inference:
+      model_path: "ml/models/knowledge_graph_gnn/model.pt"
+      device: "cpu"
+
+  # Teaching Policy DQN
+  teaching_policy_dqn:
+    type: dqn
+    state_dim: 8
+    n_actions: 7
+    hidden_dim: 128
+    num_layers: 2
+    training:
+      episodes: 200
+      batch_size: 64
+      learning_rate: 0.001
+      gamma: 0.99
+      epsilon_start: 1.0
+      epsilon_end: 0.05
+      epsilon_decay: 150
+      replay_buffer_size: 20000
+      target_update_frequency: 10
+    inference:
+      model_path: "ml/models/teaching_policy_dqn/policy_net.pt"
+      epsilon: 0.05        # small exploration in production
+      device: "cpu"
+
+  # Embedding model (sentence-transformers)
+  embedding:
+    type: sentence-transformer
+    model_name: "all-MiniLM-L6-v2"
+    embedding_dim: 384
+    max_sequence_length: 256
+    device: "cpu"
+
+  # Reranker (cross-encoder)
+  reranker:
+    type: cross-encoder
+    model_name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    max_length: 512
+    device: "cpu"

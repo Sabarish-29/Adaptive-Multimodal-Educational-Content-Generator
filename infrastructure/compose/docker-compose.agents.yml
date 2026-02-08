@@ -1,0 +1,133 @@
+# NeuroSync AI – Agent Services
+# All 6 AI agents + Orchestrator
+
+services:
+  # ─── Orchestrator ────────────────────────────────────────────────────
+  orchestrator:
+    build: ../../services/orchestrator
+    container_name: ns-orchestrator
+    ports:
+      - "8010:8010"
+    environment:
+      NEUROSYNC_REDIS_URL: redis://redis:6379/0
+      NEUROSYNC_MONGODB_URI: mongodb://mongodb:27017/neurosync
+      NEUROSYNC_COGNITIVE_GUARDIAN_URL: http://cognitive-guardian:8011
+      NEUROSYNC_CONTENT_ARCHITECT_URL: http://content-architect:8012
+      NEUROSYNC_TUTOR_AGENT_URL: http://tutor-agent:8013
+      NEUROSYNC_INTERVENTION_AGENT_URL: http://intervention-agent:8014
+      NEUROSYNC_PROGRESS_ANALYST_URL: http://progress-analyst:8015
+      NEUROSYNC_PEER_CONNECTOR_URL: http://peer-connector:8016
+    depends_on:
+      - cognitive-guardian
+      - content-architect
+      - tutor-agent
+      - intervention-agent
+      - progress-analyst
+      - peer-connector
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 1: Cognitive Guardian ─────────────────────────────────────
+  cognitive-guardian:
+    build: ../../services/cognitive-guardian
+    container_name: ns-cognitive-guardian
+    ports:
+      - "8011:8011"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8011/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 2: Content Architect ──────────────────────────────────────
+  content-architect:
+    build: ../../services/content-architect
+    container_name: ns-content-architect
+    ports:
+      - "8012:8012"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neurosync_kg
+      QDRANT_URL: http://qdrant:6333
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8012/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 3: Tutor Agent ───────────────────────────────────────────
+  tutor-agent:
+    build: ../../services/tutor-agent
+    container_name: ns-tutor-agent
+    ports:
+      - "8013:8013"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8013/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 4: Intervention Agent ────────────────────────────────────
+  intervention-agent:
+    build: ../../services/intervention-agent
+    container_name: ns-intervention-agent
+    ports:
+      - "8014:8014"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 5: Progress Analyst ──────────────────────────────────────
+  progress-analyst:
+    build: ../../services/progress-analyst
+    container_name: ns-progress-analyst
+    ports:
+      - "8015:8015"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neurosync_kg
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8015/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ─── Agent 6: Peer Connector ────────────────────────────────────────
+  peer-connector:
+    build: ../../services/peer-connector
+    container_name: ns-peer-connector
+    ports:
+      - "8016:8016"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/neurosync
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8016/healthz')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

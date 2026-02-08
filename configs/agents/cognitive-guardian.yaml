@@ -1,0 +1,58 @@
+# Cognitive Guardian Agent Configuration
+# =======================================
+
+service:
+  name: cognitive-guardian
+  version: "1.0.0"
+  port: 8011
+  log_level: INFO
+
+# Cognitive load fusion weights (must sum to 1.0)
+cognitive_load:
+  weights:
+    hesitation: 0.25
+    error_pattern: 0.35
+    rereading: 0.20
+    fatigue: 0.15
+    attention: 0.05
+  thresholds:
+    low: 0.3
+    optimal: 0.5
+    high: 0.7
+    critical: 0.85
+  window_seconds: 30        # sliding window for load computation
+  update_interval_ms: 500   # how often to recalculate
+
+# Attention tracking (MediaPipe)
+attention:
+  enabled: true
+  model: "face_mesh"
+  confidence_threshold: 0.6
+  buffer_max_frames: 100
+  gaze_deviation_threshold: 15.0   # degrees
+
+# Fatigue estimation
+fatigue:
+  session_duration_weight: 0.4
+  circadian_weight: 0.3
+  interaction_decay_weight: 0.3
+  peak_hours: [9, 10, 11, 14, 15, 16]
+
+# Intervention triggers
+triggers:
+  immediate:
+    cognitive_load_threshold: 0.85
+    consecutive_errors: 3
+  warning:
+    cognitive_load_threshold: 0.70
+    fatigue_threshold: 0.75
+  predictive:
+    enabled: true
+    lookahead_steps: 5
+    model_path: "ml/models/cognitive_load_lstm/model.pt"
+
+# Emotion detection (placeholder for future multimodal)
+emotion:
+  enabled: false
+  model: "placeholder"
+  modalities: ["text_sentiment"]

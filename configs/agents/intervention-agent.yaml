@@ -1,0 +1,63 @@
+# Intervention Agent Configuration
+# ==================================
+
+service:
+  name: intervention-agent
+  version: "1.0.0"
+  port: 8014
+  log_level: INFO
+
+# Intervention strategies
+strategies:
+  available:
+    - BREAK
+    - SWITCH_MODALITY
+    - SIMPLIFY
+    - ENCOURAGE
+    - GAMIFY
+    - PEER_HELP
+    - REVIEW
+  cooldown_seconds: 120        # min gap between interventions
+  max_per_session: 10
+
+# Rule-based fallback triggers
+rules:
+  high_load:
+    threshold: 0.85
+    actions: [BREAK, SIMPLIFY]
+  medium_load:
+    threshold: 0.70
+    actions: [SWITCH_MODALITY, ENCOURAGE]
+  fatigue:
+    threshold: 0.75
+    actions: [BREAK, GAMIFY]
+  low_engagement:
+    threshold: 0.3
+    actions: [GAMIFY, PEER_HELP]
+
+# Reinforcement learning policy
+rl:
+  enabled: true
+  algorithm: DQN
+  model_path: "ml/models/teaching_policy_dqn/policy_net.pt"
+  state_dim: 8
+  n_actions: 7
+  epsilon: 0.05             # exploration rate in production
+  gamma: 0.99
+  update_frequency: 100     # steps between target-net sync
+  reward:
+    load_reduction_weight: 0.4
+    acceptance_weight: 0.3
+    rating_weight: 0.3
+
+# Break suggestions (Pomodoro-inspired)
+breaks:
+  default_duration_minutes: 5
+  long_break_after: 4        # short breaks count
+  long_break_minutes: 15
+  activities:
+    - "Take a short walk"
+    - "Do some stretching"
+    - "Practice breathing exercises"
+    - "Look at something far away for 20 seconds"
+    - "Get a glass of water"

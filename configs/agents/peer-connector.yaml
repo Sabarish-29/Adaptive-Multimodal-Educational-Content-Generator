@@ -1,0 +1,49 @@
+# Peer Connector Agent Configuration
+# =====================================
+
+service:
+  name: peer-connector
+  version: "1.0.0"
+  port: 8016
+  log_level: INFO
+
+# Matching algorithm
+matching:
+  algorithm: cosine_similarity
+  min_similarity: 0.3
+  max_matches: 10
+  features:
+    - skill_vector
+    - learning_style
+    - availability
+    - language
+  refresh_interval_seconds: 300
+
+# Group optimisation
+groups:
+  min_size: 2
+  max_size: 5
+  diversity_weight: 0.4     # balance similar + complementary
+  skill_gap_max: 0.3        # max mastery gap within group
+  rebalance_interval_hours: 24
+
+# Federated learning (Flower)
+federated:
+  enabled: false
+  server_address: "localhost:8080"
+  rounds: 5
+  min_clients: 3
+  privacy:
+    differential_privacy: true
+    noise_multiplier: 1.0
+    max_grad_norm: 1.0
+    epsilon_budget: 8.0
+    delta: 1e-5
+
+# Privacy settings
+privacy:
+  hash_student_ids: true
+  hash_algorithm: sha256
+  anonymise_profiles: true
+  data_retention_days: 365
+  gdpr_compliant: true
